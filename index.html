@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset='UTF-8'>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Nível de Água</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 10px;
+      margin: 0;
+      background: #f9f9f9;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .status,
+
+    .config {
+      margin-bottom: 25px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+      color: #555;
+    }
+
+    .valor {
+      font-size: 1.2em;
+      color: #000;
+    }
+
+    #estadoBomba.ligada {
+      color: #4CAF50;
+    }
+
+    #estadoBomba.desligada {
+      color: #f44336;
+    }
+
+    .barra {
+      width: 80%;
+      background: #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 5px auto 15px auto;
+      height: 25px;
+      border: 1px solid #ccc;
+    }
+
+    .preenchimento {
+      height: 100%;
+      background: #2196F3;
+      transition: width 0.5s ease;
+    }
+
+    form div {
+      margin-bottom: 15px;
+    }
+
+    input[type="number"] {
+      font-size: 16px;
+      padding: 8px;
+      width: 80px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 12px 35px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+  <script>
+    function atualizarDados() {
+      fetch('/data')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('nivelValor').innerText = data.nivel;
+          document.getElementById('barraNivel').style.width = data.nivel + '%';
+          const estadoBombaEl = document.getElementById('estadoBomba');
+          if (data.bomba_ligada) {
+            estadoBombaEl.innerText = 'Ligada';
+            estadoBombaEl.className = 'valor ligada';
+          } else {
+            estadoBombaEl.innerText = 'Desligada';
+            estadoBombaEl.className = 'valor desligada';
+          }
+          document.getElementById('minConfigurado').innerText = data.min_config;
+          document.getElementById('maxConfigurado').innerText = data.max_config;
+
+        })
+        .catch(error => console.error('Erro ao buscar dados:', error));
+    }
+    function salvarConfiguracao(event) {
+      event.preventDefault();
+      const min = document.getElementById('inputMin').value;
+      const max = document.getElementById('inputMax').value;
+
+      fetch('/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ min: min, max: max })
+      })
+        .then(response => {
+          if (response.ok) {
+            alert('Limites salvos com sucesso!');
+            atualizarDados();
+          } else {
+            alert('Erro ao salvar os limites.');
+          }
+        })
+        .catch(error => console.error('Erro ao salvar configuração:', error));
+    }
+    setInterval(atualizarDados, 2000);
+    window.onload = atualizarDados;
+  </script>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Controle de Nível de Água</h1>
+
+    <div class="status">
+      <p class="label">Nível Atual: <span id="nivelValor" class="valor">--</span>%</p>
+      <div class="barra">
+        <div id="barraNivel" class="preenchimento"></div>
+      </div>
+
+      <p class="label">Estado da Bomba: <span id="estadoBomba" class="valor desligada">--</span></p>
+      <p class="label" style="margin-top:20px;">
+        Limites Atuais: Mínimo de <span id="minConfigurado" class="valor">--</span>% |
+        Máximo de <span id="maxConfigurado" class="valor">--</span>%
+      </p>
+    </div>
+
+    <hr>
+    <div class="config">
+      <h2>Configurar Novos Limites</h2>
+      <form id="configForm" onsubmit="salvarConfiguracao(event)">
+        <div>
+          <label for="inputMin" class="label">Nível Mínimo (%):</label>
+          <input type="number" id="inputMin" required>
+        </div>
+        <div>
+          <label for="inputMax" class="label">Nível Máximo (%):</label>
+          <input type="number" id="inputMax" required>
+        </div>
+        <button type="submit">Salvar Novos Limites</button>
+      </form>
+    </div>
+  </div>
+
+</body>
+
+</html>
