@@ -21,6 +21,8 @@ void configure_display()
 
     // Configura o display com parâmetros padrão
     ssd1306_config(&ssd);
+
+    clear_display(); // Limpa o display OLED para iniciar com uma tela limpa
 }
 
 // Função para limpar o display OLED

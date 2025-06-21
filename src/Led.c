@@ -16,6 +16,8 @@ void configure_leds()
     {
         init_pwm(leds[i], WRAP_PWM_LED); // Configura PWM com o "wrap" definido para LEDs
     }
+    
+    set_led_color(DARK); // Define a cor inicial como escura (desligado)
 }
 
 // Define o brilho de um LED individual baseado em PWM

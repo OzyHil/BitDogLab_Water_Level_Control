@@ -11,6 +11,12 @@
 #define I2C_SCL 15               // Pino SCL para I2C
 #define DISPLAY_ADDRESS 0x3C     // Endereço do display OLED
 
+typedef enum {
+    DISPLAY_WATER_SYSTEM,   // Show water level and pump status
+    DISPLAY_NETWORK_STATUS  // Show network connection info
+} display_mode_t;
+
+
 void configure_display(); // Função para configurar o display
 
 void clear_display(); // Função para limpar o display OLED
