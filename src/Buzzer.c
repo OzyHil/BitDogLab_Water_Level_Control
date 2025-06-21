@@ -31,7 +31,7 @@ void double_beep()
 void single_beep()
 {
     set_buzzer_level(BUZZER_A, WRAP_PWM_BUZZER / 3);
-    vTaskDelay(pdMS_TO_TICKS(100)); 
+    vTaskDelay(pdMS_TO_TICKS(50)); 
     set_buzzer_level(BUZZER_A, 0);
-    vTaskDelay(pdMS_TO_TICKS(100)); 
+    vTaskDelay(pdMS_TO_TICKS(1500)); 
 }

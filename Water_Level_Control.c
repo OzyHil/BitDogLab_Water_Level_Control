@@ -109,6 +109,45 @@ void vTaskLedMatrix()
     }
 }
 
+void vTaskBuzzer()
+{
+    system_state_t current_state_copy;
+    float currente_water_level = 0.0f;
+    float max_limit = 0.0f;
+
+    while (1)
+    {
+        if (xSemaphoreTake(xStateMutex, portMAX_DELAY) == pdTRUE)
+        {
+            current_state_copy = g_current_system_state; // Atualiza a cópia do estado atual
+            xSemaphoreGive(xStateMutex);                 // Libera o mutex do estado
+        }
+
+        if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
+        {
+            currente_water_level = water_level;
+            xSemaphoreGive(xWaterLevelMutex);
+        }
+
+        if (xSemaphoreTake(xWaterLimitsMutex, portMAX_DELAY) == pdTRUE)
+        {
+            max_limit = water_level_max_limit; // Obtém o limite máximo de nível de água
+            xSemaphoreGive(xWaterLimitsMutex);              // Libera o mutex dos limites de água
+        }
+
+        if (current_state_copy == SYSTEM_FILLING) // Verifica se o sistema está enchendo
+        {
+            double_beep(); // Emite um sinal sonoro de dois
+        }
+        else if (currente_water_level> max_limit) // Verifica se o sistema está drenando
+        {
+            single_beep(); 
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(110));
+    }
+}
+
 void vTaskControlSystem()
 {
     system_state_t current_state_copy = SYSTEM_DRAINING; // Cópia do estado atual do sistema
@@ -161,7 +200,7 @@ void vTaskControlSystem()
             set_led_color(ORANGE);       // Liga o LED laranja
             gpio_put(WATER_PUMP_PIN, 1); // Liga a bomba de água
             break;
-        default:                         // Estado desconhecido
+        default: // Estado desconhecido
             printf("WARNING: Unknow state detected! Resetting system to draining state...\n");
             set_led_color(DARK);         // Desliga o LED
             gpio_put(WATER_PUMP_PIN, 0); // Desliga a bomba de água
@@ -214,13 +253,12 @@ int main()
     draw_info("Iniciando servidor...");         // Exibe a mensagem inicial no display
     struct tcp_pcb *server = init_tcp_server(); // Inicializa o servidor TCP
 
-
     // Criação das tarefas
     xTaskCreate(vTaskDisplay, "Task Display", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
-    xTaskCreate(vTaskLedMatrix, "Task LedMatrix", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
+    xTaskCreate(vTaskLedMatrix, "Task LED Matrix", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
     xTaskCreate(vTaskControlSystem, "Task Control System", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
     xTaskCreate(vTaskResetThresholds, "Task Reset Thresholds", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
-    // xTaskCreate(vTaskControlWaterMotor, "Task ControlWaterMotor", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
+    xTaskCreate(vTaskBuzzer, "Task Buzzer", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
     xTaskCreate(vTaskTCPServer, "Task TCP Server", configMINIMAL_STACK_SIZE + 128, NULL, 1, NULL);
 
     vTaskStartScheduler(); // Inicia o escalonador de tarefas
