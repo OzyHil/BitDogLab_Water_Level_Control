@@ -78,6 +78,11 @@ void deinit_cyw43()
     vTaskDelete(NULL); // Deleta a tarefa atual
 }
 
+static err_t tcp_sent_callback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+    tcp_close(tpcb); // fecha a conexão após o envio da resposta
+    return ERR_OK;
+}
+
 // Função de callback ao aceitar conexões TCP
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 {
