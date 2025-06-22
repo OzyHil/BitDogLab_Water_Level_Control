@@ -6,6 +6,7 @@
 #include "Led_Matrix.h"
 #include "Webserver.h"
 #include "Potentiometer.h"
+#include "pico/bootrom.h"
 
 system_state_t g_current_system_state = SYSTEM_DRAINING; // Variável global para armazenar o estado atual do sistema
 float water_level = 0.0f;                                // Nível de água atual
@@ -40,6 +41,11 @@ void gpio_irq_handler(uint gpio, uint32_t events)
         last_time_button_A = now;
         signal_task_from_isr(DisplayModeSemaphore);
     }
+    if (gpio == BUTTON_B && (now - last_time_button_B > DEBOUNCE_TIME))
+    {
+        last_time_button_B = now;
+        reset_usb_boot(0, 0);
+    }
     else if (gpio == BUTTON_J && (now - last_time_button_J > DEBOUNCE_TIME))
     {
         last_time_button_J = now;
@@ -50,24 +56,46 @@ void gpio_irq_handler(uint gpio, uint32_t events)
 void vTaskDisplay()
 {
     display_mode_t current_display_mode = DISPLAY_WATER_SYSTEM; // Modo de exibição atual do display
+    system_state_t current_state_copy;
+    float currente_water_level = 0.0f;
+    float max_limit = 0.0f;
+    float min_limit = 0.0f;
 
     while (1)
     {
+        if (xSemaphoreTake(xStateMutex, portMAX_DELAY) == pdTRUE)
+        {
+            current_state_copy = g_current_system_state; // Atualiza a cópia do estado atual
+            xSemaphoreGive(xStateMutex);                 // Libera o mutex do estado
+        }
+
+        if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
+        {
+            currente_water_level = water_level;
+            xSemaphoreGive(xWaterLevelMutex);
+        }
+
+        if (xSemaphoreTake(xWaterLimitsMutex, portMAX_DELAY) == pdTRUE)
+        {
+            max_limit = water_level_max_limit;
+            min_limit = water_level_min_limit;
+            xSemaphoreGive(xWaterLimitsMutex);
+        }
+
         if (xSemaphoreTake(DisplayModeSemaphore, 0) == pdTRUE) // Espera pelo sinal do botão A
         {
-            if (current_display_mode == DISPLAY_WATER_SYSTEM)
-                current_display_mode = DISPLAY_NETWORK_STATUS; // Alterna para o modo de exibição de status da rede
-            else
-                current_display_mode = DISPLAY_WATER_SYSTEM; // Alterna de volta para o modo de exibição do sistema de água
+            current_display_mode = (current_display_mode == DISPLAY_WATER_SYSTEM)
+                                       ? DISPLAY_NETWORK_STATUS
+                                       : DISPLAY_WATER_SYSTEM;
         }
 
         switch (current_display_mode) // Verifica o modo de exibição atual
         {
         case DISPLAY_WATER_SYSTEM:
-            draw_info("Dados de agua"); // Exibe no display
+            display_water_system_info(currente_water_level, max_limit, min_limit, current_state_copy);
             break;
         case DISPLAY_NETWORK_STATUS:
-            draw_info(ipaddr_ntoa(&netif_default->ip_addr)); // Exibe no display
+            display_network_info(ipaddr_ntoa(&netif_default->ip_addr), cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
             break;
         default:
             break;
@@ -119,8 +147,8 @@ void vTaskBuzzer()
     {
         if (xSemaphoreTake(xStateMutex, portMAX_DELAY) == pdTRUE)
         {
-            current_state_copy = g_current_system_state; // Atualiza a cópia do estado atual
-            xSemaphoreGive(xStateMutex);                 // Libera o mutex do estado
+            current_state_copy = g_current_system_state; 
+            xSemaphoreGive(xStateMutex);                 
         }
 
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
@@ -131,17 +159,17 @@ void vTaskBuzzer()
 
         if (xSemaphoreTake(xWaterLimitsMutex, portMAX_DELAY) == pdTRUE)
         {
-            max_limit = water_level_max_limit; // Obtém o limite máximo de nível de água
-            xSemaphoreGive(xWaterLimitsMutex);              // Libera o mutex dos limites de água
+            max_limit = water_level_max_limit; 
+            xSemaphoreGive(xWaterLimitsMutex); 
         }
 
         if (current_state_copy == SYSTEM_FILLING) // Verifica se o sistema está enchendo
         {
             double_beep(); // Emite um sinal sonoro de dois
         }
-        else if (currente_water_level> max_limit) // Verifica se o sistema está drenando
+        else if (currente_water_level > max_limit) // Verifica se o sistema está drenando
         {
-            single_beep(); 
+            single_beep();
         }
 
         vTaskDelay(pdMS_TO_TICKS(110));
@@ -246,11 +274,11 @@ int main()
     xWaterLimitsMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
 
-    draw_info("Iniciando...");                  // Exibe a mensagem inicial no display
+    display_message("Iniciando...");                  // Exibe a mensagem inicial no display
     init_cyw43();                               // Inicializa a arquitetura CYW43
-    draw_info("Conectando a rede...");          // Exibe a mensagem inicial no display
+    display_message("Conectando a rede...");          // Exibe a mensagem inicial no display
     connect_to_wifi();                          // Conecta ao Wi-Fi
-    draw_info("Iniciando servidor...");         // Exibe a mensagem inicial no display
+    display_message("Iniciando servidor...");         // Exibe a mensagem inicial no display
     struct tcp_pcb *server = init_tcp_server(); // Inicializa o servidor TCP
 
     // Criação das tarefas
