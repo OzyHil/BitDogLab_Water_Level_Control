@@ -87,6 +87,7 @@ static err_t tcp_sent_callback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 {
     tcp_recv(newpcb, tcp_server_recv);
+    tcp_sent(newpcb, tcp_sent_callback); // callback para após envio
     return ERR_OK;
 }
 
