@@ -75,7 +75,6 @@ void vTaskDisplay()
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
         {
             currente_water_level = water_level;
-            add_reading(currente_water_level, historic_levels); // Adiciona o nível de água atual ao histórico
             xSemaphoreGive(xWaterLevelMutex);
         }
 
@@ -196,6 +195,7 @@ void vTaskControlSystem()
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
         {
             water_level = new_water_level;
+            add_reading(currente_water_level, historic_levels); // Adiciona o nível de água atual ao histórico
             xSemaphoreGive(xWaterLevelMutex);
             printf("INFO: Water level: %d \n", new_water_level);
         }
