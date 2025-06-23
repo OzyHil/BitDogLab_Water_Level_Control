@@ -1,1 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Nível de Água</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: 'Segoe UI', sans-serif; background: #eef1f5; color: #333; margin: 0; padding: 20px; }
+h1 { text-align: center; margin-bottom: 30px; }
+.card { background: #fff; padding: 20px; margin: 20px auto; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); max-width: 700px; text-align: center; }
+.card h2 { margin-bottom: 20px; color: #1e88e5; }
+.label, table td { font-weight: bold; margin-bottom: 5px; color: #555; }
+.valor { font-size: 1.4em; font-weight: bold; color: #000; }
+#estadoBomba.ligada { color: #4caf50; }
+#estadoBomba.desligada { color: #f44336; }
+.barra { width: 100%; background: #ccc; border-radius: 12px; overflow: hidden; height: 25px; margin: 10px 0; border: 1px solid #aaa; position: relative; }
+.preenchimento { height: 100%; background: linear-gradient(90deg,rgb(235, 251, 255), #1e88e5); transition: width 0.4s ease; width: 0%; }
+.linha-limiar { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #333; z-index: 10; }
+input[type='number'] { font-size: 16px; padding: 8px; width: 100px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+button { font-size: 16px; padding: 12px 25px; border: none; border-radius: 6px; background: #1e88e5; color: white; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); transition: background 0.3s; cursor: pointer; margin-top: 20px; }
+button:hover { background: #1565c0; }
+canvas { max-width: 100%; height: auto; margin-top: 20px; }
+.tabela-limites { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.tabela-limites td { padding: 12px; border-bottom: 1px solid #ddd; text-align: center; font-size: 1.1em; }
+form>div { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<h1>Controle de Nível de Água</h1>
+
+<div class="card">
+<h2>Dados Atuais</h2>
+<div style="display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;">
+  <p class="label">Quantidade: <span id="nivelValor" class="valor">--</span>ml</p>
+  <p class="label">Nível: <span id="nivelPorcentagem" class="valor">--</span>%</p>
+</div>
+<div class="barra">
 <div id="barraNivel" class="preenchimento"></div>
+<div id="linhaMinimo" class="linha-limiar"></div>
+<div id="linhaMaximo" class="linha-limiar"></div>
+</div>
+<p class="label">Estado da Bomba: <span id="estadoBomba" class="valor desligada">--</span></p>
+</div>
+
+<div class="card">
+<h2>Histórico de Nível</h2>
+<canvas id="graficoNivel" width="600" height="300"></canvas>
+</div>
+
+<div class="card">
+<h2>Limites Configurados</h2>
+<table class="tabela-limites">
+<tr><td>Capacidade Máxima</td><td><span class="valor">2000</span> ml</td></tr>
+<tr><td>Mínimo Configurado</td><td><span id="minConfigurado" class="valor">--</span> ml</td></tr>
+<tr><td>Máximo Configurado</td><td><span id="maxConfigurado" class="valor">--</span> ml</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>Configurar Novos Limites</h2>
+<form id="configForm" onsubmit="salvarConfiguracao(event)">
+<div><label for="inputMin" class="label">Nível Mínimo (ml):</label><br>
+<input type="number" id="inputMin" required></div>
+<div><label for="inputMax" class="label">Nível Máximo (ml):</label><br>
+<input type="number" id="inputMax" required></div>
+<button type="submit">Salvar Novos Limites</button>
+</form>
+</div>
+
+<script>
+const MAX_WATER_CAPACITY = 2000;
+let grafico = null;
+
+// Dados fake para teste
+let dadosFake = {
+  nivel: 750,
+  bomba_ligada: false,
+  min_config: 300,
+  max_config: 1800,
+  historico: [400, 500, 650, 700, 750, 800, 750, 720, 750]
+};
+
+function inicializarGrafico() {
+  const ctx = document.getElementById('graficoNivel').getContext('2d');
+  grafico = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Nível (ml)',
+        data: [],
+        backgroundColor: 'rgba(33, 150, 243, 0.2)',
+        borderColor: 'rgba(33, 150, 243, 1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          suggestedMax: MAX_WATER_CAPACITY
+        }
+      }
+    }
+  });
+}
+
+function atualizarDados() {
+  // Simula fetch com dados fake
+  const data = dadosFake;
+  
+  document.getElementById('nivelValor').innerText = data.nivel;
+  const porcentagem = (data.nivel * 100) / MAX_WATER_CAPACITY;
+  document.getElementById('barraNivel').style.width = porcentagem + '%';
+  document.getElementById('nivelPorcentagem').innerText = porcentagem.toFixed(1);
+  
+  const estadoBombaEl = document.getElementById('estadoBomba');
+  estadoBombaEl.innerText = data.bomba_ligada ? 'Ligada' : 'Desligada';
+  estadoBombaEl.className = 'valor ' + (data.bomba_ligada ? 'ligada' : 'desligada');
+  
+  document.getElementById('minConfigurado').innerText = data.min_config;
+  document.getElementById('maxConfigurado').innerText = data.max_config;
+  
+  // Posicionar as linhas dos limiares
+  const porcentagemMin = (data.min_config * 100) / MAX_WATER_CAPACITY;
+  const porcentagemMax = (data.max_config * 100) / MAX_WATER_CAPACITY;
+  
+  document.getElementById('linhaMinimo').style.left = porcentagemMin + '%';
+  document.getElementById('linhaMaximo').style.left = porcentagemMax + '%';
+  
+  if (grafico && Array.isArray(data.historico)) {
+    grafico.data.labels = data.historico.map((_, i) => i + 1);
+    grafico.data.datasets[0].data = data.historico;
+    grafico.update();
+  }
+}
+
+function salvarConfiguracao(event) {
+  event.preventDefault();
+  const min = document.getElementById('inputMin').value;
+  const max = document.getElementById('inputMax').value;
+  
+  // Simula salvamento alterando dados fake
+  dadosFake.min_config = Number(min);
+  dadosFake.max_config = Number(max);
+  
+  alert('Limites salvos com sucesso!');
+  atualizarDados();
+}
+
+// Simula mudança de dados a cada 3 segundos
+function simularMudancas() {
+  dadosFake.nivel = Math.floor(Math.random() * 1000) + 500;
+  dadosFake.bomba_ligada = Math.random() > 0.5;
+  dadosFake.historico.push(dadosFake.nivel);
+  if (dadosFake.historico.length > 10) {
+    dadosFake.historico.shift();
+  }
+  atualizarDados();
+}
+
+inicializarGrafico();
+atualizarDados();
+setInterval(simularMudancas, 3000);
+</script>
+</body>
+</html>6153
