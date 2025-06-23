@@ -9,16 +9,19 @@
 #include "pico/bootrom.h"
 
 system_state_t g_current_system_state = SYSTEM_DRAINING; // Variável global para armazenar o estado atual do sistema
-float water_level = 0.0f;                                // Nível de água atual
-float water_level_max_limit = MAX_WATER_LEVEL;           // Limite máximo de nível de água
-float water_level_min_limit = MIN_WATER_LEVEL;           // Limite mínimo de nível de água
+uint water_level = 0;                                    // Nível de água atual
+uint water_level_max_limit = MAX_WATER_LEVEL;            // Limite máximo de nível de água
+uint water_level_min_limit = MIN_WATER_LEVEL;            // Limite mínimo de nível de água
+bool pump_status = false;                                // Status da bomba de água (ligada/desligada)
+uint historic_levels[MAX_READINGS] = {0};
 
 // Semáforos para controle de acesso e sincronização
 SemaphoreHandle_t DisplayModeSemaphore,
     xResetThresholds,
     xWaterLevelMutex,
     xWaterLimitsMutex,
-    xStateMutex;
+    xStateMutex,
+    xWaterPumpMutex;
 
 // Variáveis para controle de tempo de debounce dos botões
 uint last_time_button_A, last_time_button_B, last_time_button_J = 0;
@@ -57,9 +60,9 @@ void vTaskDisplay()
 {
     display_mode_t current_display_mode = DISPLAY_WATER_SYSTEM; // Modo de exibição atual do display
     system_state_t current_state_copy;
-    float currente_water_level = 0.0f;
-    float max_limit = 0.0f;
-    float min_limit = 0.0f;
+    uint currente_water_level = 0;
+    uint max_limit = 0;
+    uint min_limit = 0;
 
     while (1)
     {
@@ -72,6 +75,7 @@ void vTaskDisplay()
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
         {
             currente_water_level = water_level;
+            add_reading(currente_water_level, historic_levels); // Adiciona o nível de água atual ao histórico
             xSemaphoreGive(xWaterLevelMutex);
         }
 
@@ -122,7 +126,7 @@ void vTaskResetThresholds()
 
 void vTaskLedMatrix()
 {
-    float new_water_level = 0.0f; // Novo nível de água a ser definido
+    uint new_water_level = 0; // Novo nível de água a ser definido
 
     while (1)
     {
@@ -140,15 +144,15 @@ void vTaskLedMatrix()
 void vTaskBuzzer()
 {
     system_state_t current_state_copy;
-    float currente_water_level = 0.0f;
-    float max_limit = 0.0f;
+    uint currente_water_level = 0;
+    uint max_limit = 0;
 
     while (1)
     {
         if (xSemaphoreTake(xStateMutex, portMAX_DELAY) == pdTRUE)
         {
-            current_state_copy = g_current_system_state; 
-            xSemaphoreGive(xStateMutex);                 
+            current_state_copy = g_current_system_state;
+            xSemaphoreGive(xStateMutex);
         }
 
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
@@ -159,8 +163,8 @@ void vTaskBuzzer()
 
         if (xSemaphoreTake(xWaterLimitsMutex, portMAX_DELAY) == pdTRUE)
         {
-            max_limit = water_level_max_limit; 
-            xSemaphoreGive(xWaterLimitsMutex); 
+            max_limit = water_level_max_limit;
+            xSemaphoreGive(xWaterLimitsMutex);
         }
 
         if (current_state_copy == SYSTEM_FILLING) // Verifica se o sistema está enchendo
@@ -179,21 +183,21 @@ void vTaskBuzzer()
 void vTaskControlSystem()
 {
     system_state_t current_state_copy = SYSTEM_DRAINING; // Cópia do estado atual do sistema
-    float new_water_level = 0.0f;                        // Novo nível de água a ser definido
-    float adc_value = 0.0f;                              // Valor lido do potenciômetro
+    uint new_water_level = 0;                            // Novo nível de água a ser definido
+    uint adc_value = 0;                                  // Valor lido do potenciômetro
 
     while (1)
     {
         /* -------------- LEITURA DA BOIA ---------------  */
         adc_value = read_potentiometer();
-        new_water_level = map_reading(adc_value, MIN_ADC_VALUE, MAX_ADC_VALUE, 0.0F, MAX_WATER_CAPACITY);
+        new_water_level = map_reading(adc_value, MIN_ADC_VALUE, MAX_ADC_VALUE, 0, MAX_WATER_CAPACITY);
 
         /* -------------- ATUALIZAÇÃO DO NÍVEL DA ÁGUA ---------------  */
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)
         {
             water_level = new_water_level;
             xSemaphoreGive(xWaterLevelMutex);
-            printf("INFO: Water level: %.2f \n", new_water_level);
+            printf("INFO: Water level: %d \n", new_water_level);
         }
 
         /* -------------- ATUALIZAÇÃO DO ESTADO DO SISTEMA ---------------  */
@@ -220,17 +224,38 @@ void vTaskControlSystem()
 
         switch (current_state_copy)
         {
-        case SYSTEM_DRAINING:            // Estado de drenagem
-            set_led_color(GREEN);        // Liga o LED verde
+        case SYSTEM_DRAINING:     // Estado de drenagem
+            set_led_color(GREEN); // Liga o LED verde
+
+            if (xSemaphoreTake(xWaterPumpMutex, portMAX_DELAY) == pdTRUE)
+            {
+                pump_status = false;
+                xSemaphoreGive(xWaterPumpMutex);
+            }
+
             gpio_put(WATER_PUMP_PIN, 0); // Desliga a bomba de água
             break;
-        case SYSTEM_FILLING:             // Estado de enchimento
-            set_led_color(ORANGE);       // Liga o LED laranja
+        case SYSTEM_FILLING:       // Estado de enchimento
+            set_led_color(ORANGE); // Liga o LED laranja
+
+            if (xSemaphoreTake(xWaterPumpMutex, portMAX_DELAY) == pdTRUE)
+            {
+                pump_status = true;
+                xSemaphoreGive(xWaterPumpMutex);
+            }
+
             gpio_put(WATER_PUMP_PIN, 1); // Liga a bomba de água
             break;
         default: // Estado desconhecido
             printf("WARNING: Unknow state detected! Resetting system to draining state...\n");
-            set_led_color(DARK);         // Desliga o LED
+            set_led_color(DARK); // Desliga o LED
+
+            if (xSemaphoreTake(xWaterPumpMutex, portMAX_DELAY) == pdTRUE)
+            {
+                pump_status = false;
+                xSemaphoreGive(xWaterPumpMutex);
+            }
+            
             gpio_put(WATER_PUMP_PIN, 0); // Desliga a bomba de água
             break;
         }
@@ -270,15 +295,16 @@ int main()
     xResetThresholds = xSemaphoreCreateBinary();     // Semáforo binário para o botão J
 
     // Mutexs para controle de acesso e sincronização
+    xWaterPumpMutex = xSemaphoreCreateMutex();
     xWaterLevelMutex = xSemaphoreCreateMutex();
     xWaterLimitsMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
 
-    display_message("Iniciando...");                  // Exibe a mensagem inicial no display
+    display_message("Iniciando...");            // Exibe a mensagem inicial no display
     init_cyw43();                               // Inicializa a arquitetura CYW43
-    display_message("Conectando a rede...");          // Exibe a mensagem inicial no display
+    display_message("Conectando a rede...");    // Exibe a mensagem inicial no display
     connect_to_wifi();                          // Conecta ao Wi-Fi
-    display_message("Iniciando servidor...");         // Exibe a mensagem inicial no display
+    display_message("Iniciando servidor...");   // Exibe a mensagem inicial no display
     struct tcp_pcb *server = init_tcp_server(); // Inicializa o servidor TCP
 
     // Criação das tarefas

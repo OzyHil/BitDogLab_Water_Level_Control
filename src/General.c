@@ -25,3 +25,13 @@ void init_pwm(uint gpio, uint wrap)
 
     pwm_set_enabled(slice, true); // Habilita a geração do sinal PWM no slice
 }
+
+// Adiciona um novo valor ao histórico de leituras, removendo o mais antigo se necessário
+void add_reading(uint new_value, uint readings[])
+{
+    for (int i = 0; i < MAX_READINGS - 1; i++)
+    {
+        readings[i] = readings[i + 1];
+    }
+    readings[MAX_READINGS - 1] = new_value;
+}

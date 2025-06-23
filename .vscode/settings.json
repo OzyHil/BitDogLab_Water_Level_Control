@@ -48,6 +48,11 @@
         "tuple": "c",
         "type_traits": "c",
         "utility": "c",
-        "string": "c"
+        "string": "c",
+        "led_matrix.h": "c",
+        "random": "c",
+        "limits": "c",
+        "potentiometer.h": "c",
+        "display.h": "c"
     }
 }
