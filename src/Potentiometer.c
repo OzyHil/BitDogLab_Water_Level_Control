@@ -1,8 +1,7 @@
 #include "Potentiometer.h" // Inclusão do cabeçalho com definições do potenciômetro
 
 // Função para configurar o potenciômetro utilizando ADC
-void configure_potentiometer()
-{
+void configure_potentiometer() {
     // Inicializa o ADC no pino do potenciômetro (POTENTIOMETER_A) com valor de "wrap" especificado
     adc_gpio_init(POTENTIOMETER_PIN);
 }
@@ -11,17 +10,12 @@ void configure_potentiometer()
 uint read_potentiometer() {
     uint sum = 0.0f;
     adc_select_input(2);
-
-    for (int i = 0; i < 100; i++)
-    {
+    for (int i = 0; i < 100; i++){
         sum += adc_read();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-
     uint average = sum / 100.0f;
-    
     printf("adc: %d\n", average);
-
     return average;
 }
 
