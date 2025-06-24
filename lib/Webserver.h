@@ -6,8 +6,8 @@
 
 #define LED_PIN CYW43_WL_GPIO_LED_PIN // GPIO do CI CYW43
 
-#define WIFI_SSID "TSUNAMI_EVERALDO"   // Nome da rede Wi-Fi
-#define WIFI_PASSWORD "amizade5560" // Senha da rede Wi-Fi
+#define WIFI_SSID ""   // Nome da rede Wi-Fi
+#define WIFI_PASSWORD "" // Senha da rede Wi-Fi
 
 void init_cyw43(); // Inicializa a arquitetura CYW43
 
