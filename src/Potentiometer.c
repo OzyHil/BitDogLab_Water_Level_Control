@@ -9,7 +9,7 @@ void configure_potentiometer()
 
 // Função para ler a posição do potenciômetro e retornar o valor
 uint read_potentiometer() {
-    uint sum = 0.0f;
+    float sum = 0.0f;
     adc_select_input(2);
 
     for (int i = 0; i < 100; i++)
@@ -18,10 +18,7 @@ uint read_potentiometer() {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    uint average = sum / 100.0f;
-    
-    printf("adc: %d\n", average);
-
+    float average = sum / 100.0f; // Calcula a média dos valores lidos do ADC
     return average;
 }
 
