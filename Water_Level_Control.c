@@ -183,13 +183,13 @@ void vTaskControlSystem()
 {
     system_state_t current_state_copy = SYSTEM_DRAINING; // Cópia do estado atual do sistema
     uint new_water_level = 0;                            // Novo nível de água a ser definido
-    uint adc_value = 0;                                  // Valor lido do potenciômetro
+    float adc_value = 0;                                  // Valor lido do potenciômetro
 
     while (1)
     {
         /* -------------- LEITURA DA BOIA ---------------  */
         adc_value = read_potentiometer();
-        new_water_level = map_reading(adc_value, MIN_ADC_VALUE, MAX_ADC_VALUE, 0, MAX_WATER_CAPACITY);
+        new_water_level = map_reading(adc_value, MIN_ADC_VALUE, MAX_ADC_VALUE, 0, MAX_WATER_CAPACITY);        // Convertendo valor ADC para nível de água;
 
         /* -------------- ATUALIZAÇÃO DO NÍVEL DA ÁGUA ---------------  */
         if (xSemaphoreTake(xWaterLevelMutex, portMAX_DELAY) == pdTRUE)

@@ -4,8 +4,6 @@
 #include "General.h"
 
 #define POTENTIOMETER_PIN 28 // Pino do potenciômetro
-#define MAX_ADC_VALUE 4090 // Valor máximo do ADC (12 bits)
-#define MIN_ADC_VALUE 3860 // Valor mínimo do potenciômetro
 
 // Função para configurar o potenciômetro
 void configure_potentiometer();

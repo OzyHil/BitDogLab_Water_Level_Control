@@ -30,9 +30,13 @@
 #include "semphr.h"
 
 // Definição de constantes e macros
-#define MAX_WATER_CAPACITY 5000 // Capacidade máxima do reservatório de água em mililitros
-#define MIN_WATER_LEVEL 500     // Nível mínimo de água em mililitros
-#define MAX_WATER_LEVEL 4500    // Nível máximo de água em mililitros
+#define MAX_WATER_CAPACITY 1000 // Capacidade máxima do reservatório de água em mililitros
+#define MIN_WATER_LEVEL 150     // Nível mínimo de água em mililitros (experimental - ajuste de acordo com a necessidade)
+#define MAX_WATER_LEVEL 900    // Nível máximo de água em mililitros (experimental - ajuste de acordo com a necessidade)
+#define MIN_ADC_VALUE 2133.0f      // Valor ADC em 0mL (experimental - ajuste de acordo com a necessidade)
+#define MAX_ADC_VALUE 2512.0f      // Valor ADC em 1000mL (experimental - ajuste de acordo com a necessidade)
+#define DEAD_ZONE 5
+
 
 #define WATER_PUMP_PIN 16 // Pino da bomba de água
 
